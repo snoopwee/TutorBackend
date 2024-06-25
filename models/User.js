@@ -1,0 +1,71 @@
+const sql = require('mssql');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const dotenv = require('dotenv');
+const connectDB = require('../config/db'); // Assuming db.js is where connectDB is defined
+
+dotenv.config();
+
+class User {
+  constructor({ userId, userName, fullName, email, password, avatar, dateOfBirth, role, phone, address }) {
+    this.userId = userId;
+    this.userName = userName;
+    this.fullName = fullName;
+    this.email = email;
+    this.password = password;
+    this.avatar = avatar;
+    this.dateOfBirth = dateOfBirth;
+    this.role = role;
+    this.phone = phone;
+    this.address = address;
+  }
+
+  static async findByEmail(email) {
+    try {
+      await connectDB(); // Ensure database connection
+      const result = await sql.query`
+        SELECT userId, userName, fullName, email, password, avatar, dateOfBirth, role, phone, address
+        FROM Users
+        WHERE email = ${email}
+      `;
+      if (result.recordset.length > 0) {
+        return new User(result.recordset[0]);
+      }
+      return null;
+    } catch (error) {
+      console.error('Error finding user by email:', error);
+      throw error;
+    }
+  }
+
+  static async create(userData) {
+    const hashedPassword = await bcrypt.hash(userData.password, 10);
+    try {
+      await connectDB(); // Ensure database connection
+      const result = await sql.query`
+        INSERT INTO Users (userName, fullName, email, password, avatar, dateOfBirth, role, phone, address)
+        VALUES (${userData.userName}, ${userData.fullName}, ${userData.email}, ${hashedPassword}, 
+                ${userData.avatar}, ${userData.dateOfBirth}, ${userData.role}, ${userData.phone}, ${userData.address});
+        SELECT SCOPE_IDENTITY() as id;
+      `;
+      return new User({
+        ...userData,
+        id: result.recordset[0].id,
+        password: hashedPassword
+      });
+    } catch (error) {
+      console.error('Error creating user:', error);
+      throw error;
+    }
+  }
+
+  static generateAuthToken(user) {
+    return jwt.sign({ userId: user.userId, email: user.email }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  }
+
+  static async comparePassword(inputPassword, storedPassword) {
+    return await bcrypt.compare(inputPassword, storedPassword);
+  }
+}
+
+module.exports = User;
