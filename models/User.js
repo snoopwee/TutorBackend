@@ -7,7 +7,7 @@ const connectDB = require('../config/db'); // Assuming db.js is where connectDB 
 dotenv.config();
 
 class User {
-  constructor({ userId, userName, fullName, email, password, avatar, dateOfBirth, role, phone, address }) {
+  constructor({ userId, userName, fullName, email, password, avatar, dateOfBirth, role, phone, address ,active}) {
     this.userId = userId;
     this.userName = userName;
     this.fullName = fullName;
@@ -18,13 +18,14 @@ class User {
     this.role = role;
     this.phone = phone;
     this.address = address;
+    this.active = active;
   }
 
   static async findByEmail(email) {
     try {
       await connectDB(); // Ensure database connection
       const result = await sql.query`
-        SELECT userId, userName, fullName, email, password, avatar, dateOfBirth, role, phone, address
+        SELECT *
         FROM Users
         WHERE email = ${email}
       `;
@@ -43,14 +44,15 @@ class User {
     try {
       await connectDB(); // Ensure database connection
       const result = await sql.query`
-        INSERT INTO Users (userName, fullName, email, password, avatar, dateOfBirth, role, phone, address)
+        INSERT INTO Users (userName, fullName, email, password, avatar, dateOfBirth, role, phone, address,active)
         VALUES (${userData.userName}, ${userData.fullName}, ${userData.email}, ${hashedPassword}, 
-                ${userData.avatar}, ${userData.dateOfBirth}, ${userData.role}, ${userData.phone}, ${userData.address});
-        SELECT SCOPE_IDENTITY() as id;
+                ${userData.avatar}, ${userData.dateOfBirth}, ${userData.role}, ${userData.phone}, ${userData.address},${1});
+        SELECT SCOPE_IDENTITY() as userID;
       `;
+      const userId = result.recordset[0].userID;
       return new User({
         ...userData,
-        id: result.recordset[0].id,
+        userId,
         password: hashedPassword
       });
     } catch (error) {
